@@ -17,15 +17,36 @@ trait Stream[+A] {
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
   }
-  def take(n: Int): Stream[A] = ???
 
-  def drop(n: Int): Stream[A] = ???
+  def toList: List[A] = {
+    @annotation.tailrec
+    def rec(s: Stream[A], acc: List[A]): List[A] = s match {
+      case Cons(x, xs) => rec(xs(), x() :: acc)
+      case _ => acc
+    }
+    rec(this, List[A]()).reverse
+  }
 
-  def takeWhile(p: A => Boolean): Stream[A] = ???
+  def take(n: Int): Stream[A] = this match {
+    case Cons(x, xs) if n > 1 => cons(x(), xs().take(n-1))
+    case Cons(x, _) if n == 1 => cons(x(), empty)
+    case _ => empty 
+  }
 
-  def forAll(p: A => Boolean): Boolean = ???
+  def drop(n: Int): Stream[A] = this match {
+    case Cons(x, xs) if n > 0 => xs().drop(n-1)
+    case _ => this
+  }
 
-  def headOption: Option[A] = ???
+  def takeWhile(p: A => Boolean): Stream[A] = this match {
+    case Cons(x, xs) if p(x()) => cons(x(), xs().takeWhile(p))
+    case _ => empty
+  }
+
+  def forAll(p: A => Boolean): Boolean =
+    this.foldRight(true)((x, xs) => p(x) && xs)
+
+  def headOption: Option[A] = foldRight(None: Option[A])((x, _) => Some(x))
 
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
@@ -49,7 +70,10 @@ object Stream {
     else cons(as.head, apply(as.tail: _*))
 
   val ones: Stream[Int] = Stream.cons(1, ones)
-  def from(n: Int): Stream[Int] = ???
+  def from(n: Int): Stream[Int] = unfold(n)(n => Some(n, n+1))
 
-  def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = ???
+  def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = f(z) match {
+    case Some(x, xs) => cons(x, unfold(xs)(f))
+    case None => empty
+  }
 }
